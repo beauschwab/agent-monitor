@@ -1,6 +1,14 @@
 "use client"
 
-import { Search, Filter, ExpandIcon as ExpandAll, ListCollapseIcon as CollapseAll, RefreshCw } from "lucide-react"
+import {
+  Search,
+  Filter,
+  ExpandIcon as ExpandAll,
+  ListCollapseIcon as CollapseAll,
+  RefreshCw,
+  Calendar,
+  Clock,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -13,7 +21,17 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar as CalendarComponent } from "@/components/ui/calendar"
+import { format } from "date-fns"
 import type { ObservationType, ObservationStatus } from "@/lib/types"
+
+export type TimeRange = "30min" | "2hours" | "today" | "week" | "custom"
+
+interface DateRange {
+  from: Date | undefined
+  to: Date | undefined
+}
 
 interface TreeToolbarProps {
   searchQuery: string
@@ -22,6 +40,10 @@ interface TreeToolbarProps {
   onTypeFilterChange: (types: Set<ObservationType>) => void
   statusFilter: Set<ObservationStatus>
   onStatusFilterChange: (statuses: Set<ObservationStatus>) => void
+  timeRange: TimeRange
+  onTimeRangeChange: (range: TimeRange) => void
+  customDateRange: DateRange
+  onCustomDateRangeChange: (range: DateRange) => void
   onExpandAll: () => void
   onCollapseAll: () => void
   onRefresh: () => void
@@ -42,6 +64,14 @@ const OBSERVATION_STATUSES: { value: ObservationStatus; label: string; color: st
   { value: "unknown", label: "Unknown", color: "bg-muted-foreground" },
 ]
 
+const TIME_RANGES: { value: TimeRange; label: string }[] = [
+  { value: "30min", label: "Last 30 min" },
+  { value: "2hours", label: "Last 2 Hours" },
+  { value: "today", label: "Today" },
+  { value: "week", label: "This Week" },
+  { value: "custom", label: "Custom Range" },
+]
+
 export function TreeToolbar({
   searchQuery,
   onSearchChange,
@@ -49,6 +79,10 @@ export function TreeToolbar({
   onTypeFilterChange,
   statusFilter,
   onStatusFilterChange,
+  timeRange,
+  onTimeRangeChange,
+  customDateRange,
+  onCustomDateRangeChange,
   onExpandAll,
   onCollapseAll,
   onRefresh,
@@ -56,7 +90,19 @@ export function TreeToolbar({
   filteredCount,
 }: TreeToolbarProps) {
   const activeFiltersCount =
-    (typeFilter.size > 0 && typeFilter.size < 3 ? 1 : 0) + (statusFilter.size > 0 && statusFilter.size < 4 ? 1 : 0)
+    (typeFilter.size > 0 && typeFilter.size < 3 ? 1 : 0) +
+    (statusFilter.size > 0 && statusFilter.size < 4 ? 1 : 0) +
+    (timeRange !== "today" ? 1 : 0)
+
+  const getTimeRangeLabel = () => {
+    if (timeRange === "custom" && customDateRange.from) {
+      if (customDateRange.to) {
+        return `${format(customDateRange.from, "MMM d")} - ${format(customDateRange.to, "MMM d")}`
+      }
+      return format(customDateRange.from, "MMM d, yyyy")
+    }
+    return TIME_RANGES.find((r) => r.value === timeRange)?.label || "Today"
+  }
 
   return (
     <TooltipProvider>
@@ -71,6 +117,58 @@ export function TreeToolbar({
             className="pl-8 h-8 text-sm"
           />
         </div>
+
+        {/* Time Range Filter */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8 bg-transparent">
+              <Clock className="h-3 w-3 mr-1" />
+              {getTimeRangeLabel()}
+              {timeRange !== "today" && (
+                <Badge variant="secondary" className="ml-1 h-4 px-1 text-xs">
+                  1
+                </Badge>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuLabel>Time Range</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {TIME_RANGES.filter((r) => r.value !== "custom").map((range) => (
+              <DropdownMenuCheckboxItem
+                key={range.value}
+                checked={timeRange === range.value}
+                onCheckedChange={() => onTimeRangeChange(range.value)}
+              >
+                {range.label}
+              </DropdownMenuCheckboxItem>
+            ))}
+            <DropdownMenuSeparator />
+            <div className="p-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="w-full justify-start">
+                    <Calendar className="h-3 w-3 mr-2" />
+                    Custom Range
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="range"
+                    selected={customDateRange}
+                    onSelect={(range) => {
+                      onCustomDateRangeChange(range || { from: undefined, to: undefined })
+                      if (range?.from) {
+                        onTimeRangeChange("custom")
+                      }
+                    }}
+                    numberOfMonths={2}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Type Filter */}
         <DropdownMenu>

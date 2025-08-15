@@ -3,27 +3,29 @@
 import { useState } from "react"
 import { useTimelineData } from "@/hooks/use-timeline-data"
 import { useTreeState } from "@/hooks/use-tree-state"
-import { TreeToolbar } from "@/components/tree-toolbar"
-import { ObservationTree } from "@/components/observation-tree"
-import { TimelineHeader } from "@/components/timeline-header"
-import { TimelineCanvas } from "@/components/timeline-canvas"
+import { TreeToolbar, type TimeRange } from "@/components/tree-toolbar"
+import { TimelineTreeIntegrated } from "@/components/timeline-tree-integrated"
 import { ObservationDrawer } from "@/components/observation-drawer"
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Card } from "@/components/ui/card"
-import { createTimeScale } from "@/lib/timeline-utils"
 import type { Observation } from "@/lib/types"
+
+interface DateRange {
+  from: Date | undefined
+  to: Date | undefined
+}
 
 export default function TraceTimelinePage() {
   const { trace, observations, isLoading, error, refetch } = useTimelineData()
   const treeState = useTreeState({ observations })
-  const [timelineWidth] = useState(800)
 
   const [selectedObservation, setSelectedObservation] = useState<Observation | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
-  const timeScale = createTimeScale(observations, timelineWidth)
+  const [timeRange, setTimeRange] = useState<TimeRange>("today")
+  const [customDateRange, setCustomDateRange] = useState<DateRange>({ from: undefined, to: undefined })
+
+  const [drawerHeight, setDrawerHeight] = useState(400)
 
   const handleObservationSelect = (id: string) => {
     treeState.selectObservation(id)
@@ -51,21 +53,6 @@ export default function TraceTimelinePage() {
     setIsDrawerOpen(false)
     setSelectedObservation(null)
     treeState.selectObservation("")
-  }
-
-  const handleZoomIn = () => {
-    // TODO: Implement zoom in logic
-    console.log("Zoom in")
-  }
-
-  const handleZoomOut = () => {
-    // TODO: Implement zoom out logic
-    console.log("Zoom out")
-  }
-
-  const handleFitToWindow = () => {
-    // TODO: Implement fit to window logic
-    console.log("Fit to window")
   }
 
   if (isLoading) {
@@ -96,62 +83,46 @@ export default function TraceTimelinePage() {
       </div>
 
       {/* Main Content */}
-      <div className="h-[calc(100vh-80px)]">
-        <ResizablePanelGroup direction="horizontal">
-          {/* Left Panel - Tree View */}
-          <ResizablePanel defaultSize={35} minSize={20}>
-            <div className="h-full flex flex-col">
-              <TreeToolbar
-                searchQuery={treeState.searchQuery}
-                onSearchChange={treeState.setSearchQuery}
-                typeFilter={treeState.typeFilter}
-                onTypeFilterChange={treeState.setTypeFilter}
-                statusFilter={treeState.statusFilter}
-                onStatusFilterChange={treeState.setStatusFilter}
-                onExpandAll={treeState.expandAll}
-                onCollapseAll={treeState.collapseAll}
-                onRefresh={refetch}
-                totalCount={treeState.totalCount}
-                filteredCount={treeState.filteredCount}
-              />
+      <div className="h-[calc(100vh-80px)] flex flex-col">
+        {/* Toolbar */}
+        <div className="border-b">
+          <TreeToolbar
+            searchQuery={treeState.searchQuery}
+            onSearchChange={treeState.setSearchQuery}
+            typeFilter={treeState.typeFilter}
+            onTypeFilterChange={treeState.setTypeFilter}
+            statusFilter={treeState.statusFilter}
+            onStatusFilterChange={treeState.setStatusFilter}
+            timeRange={timeRange}
+            onTimeRangeChange={setTimeRange}
+            customDateRange={customDateRange}
+            onCustomDateRangeChange={setCustomDateRange}
+            onExpandAll={treeState.expandAll}
+            onCollapseAll={treeState.collapseAll}
+            onRefresh={refetch}
+            totalCount={treeState.totalCount}
+            filteredCount={treeState.filteredCount}
+          />
+        </div>
 
-              <ObservationTree
-                observations={treeState.filteredObservations}
-                expandedIds={treeState.expandedIds}
-                selectedId={treeState.selectedId}
-                onToggleExpand={treeState.toggleExpand}
-                onSelect={handleObservationSelect}
-              />
-            </div>
-          </ResizablePanel>
-
-          <ResizableHandle />
-
-          {/* Right Panel - Timeline View */}
-          <ResizablePanel>
-            <div className="h-full flex flex-col">
-              <TimelineHeader
-                timeScale={timeScale}
-                onZoomIn={handleZoomIn}
-                onZoomOut={handleZoomOut}
-                onFitToWindow={handleFitToWindow}
-              />
-
-              <ScrollArea className="flex-1">
-                <TimelineCanvas
-                  observations={treeState.filteredObservations}
-                  selectedId={treeState.selectedId}
-                  onSelect={handleObservationSelect}
-                  width={timelineWidth}
-                  className="p-4"
-                />
-              </ScrollArea>
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+        <div className="flex-1">
+          <TimelineTreeIntegrated
+            observations={treeState.filteredObservations}
+            expandedIds={treeState.expandedIds}
+            selectedId={treeState.selectedId}
+            onToggleExpand={treeState.toggleExpand}
+            onSelect={handleObservationSelect}
+          />
+        </div>
       </div>
 
-      <ObservationDrawer observation={selectedObservation} isOpen={isDrawerOpen} onClose={handleDrawerClose} />
+      <ObservationDrawer
+        observation={selectedObservation}
+        isOpen={isDrawerOpen}
+        onClose={handleDrawerClose}
+        height={drawerHeight}
+        onHeightChange={setDrawerHeight}
+      />
     </div>
   )
 }

@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import React from "react"
+
+import { useState, useRef, useCallback } from "react"
 import { X, Copy, Clock, DollarSign, Cpu, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -15,6 +17,8 @@ interface ObservationDrawerProps {
   observation: Observation | null
   isOpen: boolean
   onClose: () => void
+  height?: number
+  onHeightChange?: (height: number) => void
 }
 
 // JSON Viewer Component
@@ -152,7 +156,59 @@ function MetadataCard({ observation }: { observation: Observation }) {
   )
 }
 
-export function ObservationDrawer({ observation, isOpen, onClose }: ObservationDrawerProps) {
+export function ObservationDrawer({
+  observation,
+  isOpen,
+  onClose,
+  height = 400,
+  onHeightChange,
+}: ObservationDrawerProps) {
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStartY = useRef(0)
+  const dragStartHeight = useRef(height)
+
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      setIsDragging(true)
+      dragStartY.current = e.clientY
+      dragStartHeight.current = height
+      document.body.style.cursor = "ns-resize"
+      document.body.style.userSelect = "none"
+    },
+    [height],
+  )
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isDragging) return
+
+      const deltaY = dragStartY.current - e.clientY
+      const newHeight = Math.max(200, Math.min(window.innerHeight * 0.8, dragStartHeight.current + deltaY))
+
+      if (onHeightChange) {
+        onHeightChange(newHeight)
+      }
+    },
+    [isDragging, onHeightChange],
+  )
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false)
+    document.body.style.cursor = ""
+    document.body.style.userSelect = ""
+  }, [])
+
+  React.useEffect(() => {
+    if (isDragging) {
+      document.addEventListener("mousemove", handleMouseMove)
+      document.addEventListener("mouseup", handleMouseUp)
+      return () => {
+        document.removeEventListener("mousemove", handleMouseMove)
+        document.removeEventListener("mouseup", handleMouseUp)
+      }
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp])
+
   if (!observation) return null
 
   return (
@@ -161,8 +217,13 @@ export function ObservationDrawer({ observation, isOpen, onClose }: ObservationD
         "fixed inset-x-0 bottom-0 z-50 bg-background border-t shadow-lg transition-transform duration-300 ease-in-out",
         isOpen ? "translate-y-0" : "translate-y-full",
       )}
-      style={{ height: "60vh" }}
+      style={{ height: `${height}px` }}
     >
+      <div
+        className="absolute top-0 left-0 right-0 h-1 bg-border hover:bg-primary/20 cursor-ns-resize transition-colors"
+        onMouseDown={handleMouseDown}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b bg-muted/30">
         <div className="flex items-center gap-3">
